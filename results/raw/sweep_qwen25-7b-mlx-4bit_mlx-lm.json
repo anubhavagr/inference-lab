@@ -1,0 +1,75 @@
+{
+  "config": {
+    "engine_name": "mlx-lm",
+    "model_id": "qwen25-7b-mlx-4bit",
+    "concurrency_levels": [
+      1,
+      4,
+      8,
+      16,
+      32
+    ],
+    "n_per_level": 16,
+    "n_warmup": 4,
+    "max_tokens": 256,
+    "temperature": 0.0
+  },
+  "levels": [
+    {
+      "concurrency": 1,
+      "wall_seconds": 72.7099736250093,
+      "n_requests": 16,
+      "output_tokens_total": 4096,
+      "ttft_ms_p50": 155.54618800524622,
+      "ttft_ms_p99": 236.49083749915008,
+      "tpot_ms_p50": 17.199105719633984,
+      "aggregate_tok_per_s": 56.33339961206011,
+      "per_request_tok_per_s": 56.44955335494859
+    },
+    {
+      "concurrency": 4,
+      "wall_seconds": 72.95193179200578,
+      "n_requests": 16,
+      "output_tokens_total": 4096,
+      "ttft_ms_p50": 156.37683300155913,
+      "ttft_ms_p99": 236.54021875263425,
+      "tpot_ms_p50": 17.23851887061256,
+      "aggregate_tok_per_s": 56.1465597878636,
+      "per_request_tok_per_s": 56.29634476079377
+    },
+    {
+      "concurrency": 8,
+      "wall_seconds": 73.244655625007,
+      "n_requests": 16,
+      "output_tokens_total": 4096,
+      "ttft_ms_p50": 153.66214600362582,
+      "ttft_ms_p99": 236.60769565030932,
+      "tpot_ms_p50": 17.320861029393022,
+      "aggregate_tok_per_s": 55.92216886062543,
+      "per_request_tok_per_s": 55.94693284056011
+    },
+    {
+      "concurrency": 16,
+      "wall_seconds": 73.28494320799655,
+      "n_requests": 16,
+      "output_tokens_total": 4096,
+      "ttft_ms_p50": 152.4827085013385,
+      "ttft_ms_p99": 235.06592945195735,
+      "tpot_ms_p50": 17.343732433315985,
+      "aggregate_tok_per_s": 55.891426269851586,
+      "per_request_tok_per_s": 55.936105339580884
+    },
+    {
+      "concurrency": 32,
+      "wall_seconds": 73.86942116700811,
+      "n_requests": 16,
+      "output_tokens_total": 4096,
+      "ttft_ms_p50": 160.88377100095386,
+      "ttft_ms_p99": 236.54643580302945,
+      "tpot_ms_p50": 17.41118660001495,
+      "aggregate_tok_per_s": 55.449195828129405,
+      "per_request_tok_per_s": 55.692292643541364
+    }
+  ],
+  "raw_count": 80
+}
