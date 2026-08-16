@@ -43,3 +43,28 @@
   both engines' runs — likely an OS scheduler / Spotlight / Time Machine
   event. We report p50 as the headline, never mean. p99 captures the
   tail but should not be over-interpreted on n=20.
+
+  ## Dispatcher benchmark (`bench.py dispatch`)
+  An *addition* to the contract — prior single-stream and sweep numbers
+  are unaffected.
+  - **Isolation:** each model instance runs in its own process (`spawn`
+    context). Threads would understate capacity: Metal dispatch
+    corruption forces the per-instance lock, and GIL contention would
+    throttle decode. Processes are the honest measurement of "K separate
+    instances."
+  - **Load:** 16 requests offered at once per K level (closed system,
+    identical to the sweep); the shared request queue is the buffer.
+  - **Warmup:** 2 discarded generations per instance — lazy Metal kernel
+    compile and weight first-touch are per-process.
+  - **Instance count K:** 1→3, capped by 24 GB unified memory (each
+    instance costs ~4.3–4.7 GB; K=4 risks swap, which invalidates
+    throughput numbers).
+  - **Additional metrics:**
+    - **Queue-inclusive TTFT:** submit-timestamp → first token — the
+      latency a client actually feels. Engine-only TTFT (comparable to
+      the sweep) is reported alongside.
+    - **Worker RSS sum:** sum of per-worker `ru_maxrss`, the true RAM
+      cost of K instances. Caveat: under memory pressure, mlx workers'
+      reported RSS varies run-to-run (9.1–11.2 GB observed at K=3 vs
+      ~12.9 nominal — macOS/Metal page accounting); llama.cpp reports
+      linearly.

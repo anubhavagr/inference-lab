@@ -107,6 +107,50 @@ def plot_sweep(metric_key: str, y_label: str, title: str, out_path: Path) -> Non
   print(f"wrote {out_path}")
 
 
+def plot_dispatch(out_path: Path) -> None:
+  files = {
+      "mlx-lm":    "dispatch_qwen25-7b-mlx-4bit_mlx-lm.json",
+      "llama.cpp": "dispatch_Qwen2.5-7B-Instruct-Q4_K_M.gguf_llama.cpp.json",
+  }
+  series = {}
+  for label, fname in files.items():
+      p = Path("results/raw") / fname
+      if not p.exists():
+          print(f"skip: {p} not found")
+          continue
+      d = json.loads(p.read_text())
+      series[label] = [(lv["k"], lv["aggregate_tok_per_s"]) for lv in d["levels"]]
+
+  if not series:
+      print("skip: no dispatcher results found")
+      return
+
+  fig, ax = plt.subplots(figsize=(7.5, 4.2))
+  for (label, pts), color in zip(series.items(), [MLX_COLOR, LLAMA_COLOR]):
+      xs = [p[0] for p in pts]
+      ys = [p[1] for p in pts]
+      ax.plot(xs, ys, marker="o", color=color, label=label, linewidth=2, markersize=7)
+      for x, y in zip(xs, ys):
+          ax.annotate(f"{y:.0f}", (x, y), textcoords="offset points",
+                      xytext=(0, 9), ha="center", fontsize=9, color=color)
+      # ideal linear scaling from the K=1 point — the reference line that
+      # separates "the dispatcher works" from "the memory wall bites"
+      if 1 in xs:
+          y1 = ys[xs.index(1)]
+          kmax = max(xs)
+          ax.plot([1, kmax], [y1, y1 * kmax], linestyle="--", linewidth=1.2,
+                  color=color, alpha=0.45)
+
+  ax.set_xlabel("K instances (processes)")
+  ax.set_ylabel("aggregate tok/s")
+  ax.set_title("Throughput vs instance count — Qwen2.5-7B-4bit on M4 Pro")
+  ax.set_xticks(sorted({x for pts in series.values() for x, _ in pts}))
+  ax.legend(frameon=False, loc="best")
+  fig.tight_layout()
+  fig.savefig(out_path, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
+  print(f"wrote {out_path}")
+
+
 def main():
   out_dir = Path("docs/img")
   out_dir.mkdir(parents=True, exist_ok=True)
@@ -117,6 +161,7 @@ def main():
   plot_sweep("ttft_ms_p50", "TTFT p50 (ms)",
              "TTFT vs concurrency — Qwen2.5-7B-4bit on M4 Pro",
              out_dir / "sweep_ttft.png")
+  plot_dispatch(out_dir / "dispatch_scaling.png")
 
 
 if __name__ == "__main__":
