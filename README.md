@@ -21,6 +21,8 @@ Single-stream on M4 Pro, Qwen2.5-7B-Instruct @ 4-bit:
 
 Concurrency sweep (1 → 32): both engines flatline within ±4% of single-stream throughput. Single-instance serving on Apple Silicon is a ceiling, not a scaling curve.
 
+K-instance dispatcher (`bench.py dispatch`): the obvious fix — K process-isolated instances behind one queue — doesn't work either. K=3 costs 3× the memory for +9% throughput, while each stream's decode rate degrades near-linearly. A single 4-bit 7B instance already streams ~250 GB/s of the M4 Pro's ~273 GB/s unified-memory bandwidth: the bus, not the lock, is the real ceiling. Only continuous batching — reading the weights once per forward pass for the whole batch — gets past it.
+
 ## Reproduce
 
 ```bash
@@ -36,6 +38,8 @@ python bench.py mlx   models/qwen25-7b-mlx-4bit
 python bench.py llama models/qwen25-7b-gguf-q4k/Qwen2.5-7B-Instruct-Q4_K_M.gguf
 python bench.py sweep mlx   models/qwen25-7b-mlx-4bit
 python bench.py sweep llama models/qwen25-7b-gguf-q4k/Qwen2.5-7B-Instruct-Q4_K_M.gguf
+python bench.py dispatch mlx   models/qwen25-7b-mlx-4bit
+python bench.py dispatch llama models/qwen25-7b-gguf-q4k/Qwen2.5-7B-Instruct-Q4_K_M.gguf
 python -m bench.plots
 ```
 
@@ -45,6 +49,7 @@ python -m bench.plots
 bench/
   runner.py            # single-stream driver — warmup, percentiles, JSON
   async_runner.py      # concurrency sweep
+  dispatcher.py        # K-instance dispatcher — process pool, shared queue
   plots.py             # matplotlib charts from saved JSON
   PROMPTS              # 12-prompt workload (in runner.py)
 engines/
@@ -57,12 +62,13 @@ results/
 docs/
   methodology.md       # the fairness contract
   writeup-1.md         # the blog post
-  img/                 # the three charts
+  img/                 # the four charts
 ```
 
 ## Status
 
 - [x] **Phase 1** — Apple Silicon bench (this repo, current state)
+- [x] **Phase 1.5** — K-instance dispatcher: instances don't beat the memory-bandwidth ceiling
 - [ ] **Phase 2** — cloud burst (H100 + vLLM + TensorRT-LLM)
 - [ ] **Phase 3** — `serve/` (OpenAI-compatible API, semantic cache, cost teardown)
 

@@ -124,6 +124,50 @@ concurrency unless you either:
 For a laptop with 32–48 GB unified memory, option (1) caps out around
 K=4–6 instances. That's the real ceiling.
 
+## Part 2 — we built the dispatcher, and the ceiling is lower than that
+
+*Update: we've since built and measured option (1). The result reframes
+everything above — read on.*
+
+`bench.py dispatch` runs a pool of K process-isolated engine instances
+draining one shared request queue — the honest implementation of "run K
+separate instances." Each instance gets its own process (threads would
+understate capacity: the per-instance lock and GIL contention are both
+artifacts we're trying to remove), its own warmup, and the same 12-prompt
+workload contract. Measured at K = 1, 2, 3 on 24 GB of unified memory
+(each 4-bit instance costs ~4.3–4.8 GB).
+
+![Throughput vs instance count](img/dispatch_scaling.png)
+
+| Engine    | agg tok/s @ K=1 | @ K=2      | @ K=3      | TPOT per stream   |
+|-----------|----------------:|-----------:|-----------:|-------------------|
+| mlx-lm    | 55.6            | 60.2 (+8%) | 60.7 (+9%) | 17 → 32 → 48 ms   |
+| llama.cpp | 45.3            | 47.8 (+6%) | 49.3 (+9%) | 22 → 41 → 60 ms   |
+
+Three times the memory buys single-digit throughput. And the TPOT column
+is the tell: each individual stream's decode rate degrades almost
+perfectly linearly with K. The instances aren't adding capacity —
+they're dividing the same saturated resource among more users.
+
+The arithmetic explains why. A 4-bit 7B model is ~4.4 GB of weights, and
+decode streams all of them for every token. At 56 tok/s that's ~250 GB/s
+of the M4 Pro's ~273 GB/s unified-memory bandwidth. **The first instance
+already saturates the bus**; the ~10% headroom is exactly what K=2 and
+K=3 recover.
+
+So the ceiling diagram on Apple Silicon has two layers:
+
+1. The **lock ceiling** — one instance serializes every request
+   (the concurrency sweep above).
+2. The **bandwidth ceiling** — remove the lock with more instances, and
+   the memory bus becomes the limit (this benchmark).
+
+The only serving technique that beats layer 2 is continuous batching:
+batched decode reads the weights *once per forward pass for the whole
+batch*, cutting the bandwidth cost per token by the batch factor. That's
+the actual reason vLLM, SGLang, and TensorRT-LLM exist — and why
+"just run K instances" is not a substitute for any of them.
+
 ## mlx-lm vs llama.cpp — what they optimize
 
 The most useful finding from this exercise isn't "which is faster."
